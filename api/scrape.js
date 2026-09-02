@@ -1,10 +1,8 @@
 "use strict";
 
-module.exports = async function handler(req, res) {
-    // --------------------------------------------------
-    // 1. Method validation
-    // --------------------------------------------------
+const cheerio = require("cheerio");
 
+module.exports = async function handler(req, res) {
     if (req.method !== "POST") {
         return res.status(405).json({
             success: false,
@@ -16,10 +14,6 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-        // --------------------------------------------------
-        // 2. Read request body
-        // --------------------------------------------------
-
         const {
             url,
             method = "GET",
@@ -28,9 +22,9 @@ module.exports = async function handler(req, res) {
             content = []
         } = req.body || {};
 
-        // --------------------------------------------------
-        // 3. Validate URL
-        // --------------------------------------------------
+        // -----------------------------
+        // Validate URL
+        // -----------------------------
 
         if (!url) {
             return res.status(400).json({
@@ -66,16 +60,16 @@ module.exports = async function handler(req, res) {
             });
         }
 
-        // --------------------------------------------------
-        // 4. Request configuration
-        // --------------------------------------------------
+        // -----------------------------
+        // Validate request configuration
+        // -----------------------------
 
         if (method !== "GET") {
             return res.status(400).json({
                 success: false,
                 error: {
                     code: "UNSUPPORTED_METHOD",
-                    message: "Only GET requests are supported in this version."
+                    message: "Only GET requests are supported."
                 }
             });
         }
@@ -92,12 +86,11 @@ module.exports = async function handler(req, res) {
             });
         }
 
-        // --------------------------------------------------
-        // 5. Start request
-        // --------------------------------------------------
+        // -----------------------------
+        // Fetch source
+        // -----------------------------
 
         const startedAt = Date.now();
-
         const controller = new AbortController();
 
         const timeoutId = setTimeout(() => {
@@ -110,7 +103,7 @@ module.exports = async function handler(req, res) {
             response = await fetch(targetUrl.toString(), {
                 method: "GET",
                 headers: {
-                    "User-Agent": "Mozilla/5.0 (compatible; WebScraper/0.2)"
+                    "User-Agent": "Mozilla/5.0 (compatible; WebScraper/0.3)"
                 },
                 signal: controller.signal
             });
@@ -118,30 +111,69 @@ module.exports = async function handler(req, res) {
             clearTimeout(timeoutId);
         }
 
-        // --------------------------------------------------
-        // 6. Read response
-        // --------------------------------------------------
+        const contentType =
+            response.headers.get("content-type") || "";
+
+        // -----------------------------
+        // Validate content type
+        // -----------------------------
+
+        if (!contentType.includes("text/html")) {
+            return res.status(415).json({
+                success: false,
+                error: {
+                    code: "UNSUPPORTED_CONTENT_TYPE",
+                    message: "The source does not return an HTML document."
+                },
+                meta: {
+                    url: targetUrl.toString(),
+                    status: response.status,
+                    contentType,
+                    duration: Date.now() - startedAt
+                }
+            });
+        }
 
         const html = await response.text();
 
+        // -----------------------------
+        // Parse HTML
+        // -----------------------------
+
+        const $ = cheerio.load(html);
+
+        const metadata = extractMetadata($, targetUrl);
+        const text = extractText($);
+        const links = extractLinks($, targetUrl);
+        const tables = extractTables($);
+
         const duration = Date.now() - startedAt;
 
-        // --------------------------------------------------
-        // 7. Return fetch result
-        // --------------------------------------------------
+        // -----------------------------
+        // Respect selected content
+        // -----------------------------
+
+        const selectedContent = {
+            metadata: content.includes("metadata") ? metadata : {},
+            text: content.includes("text") ? text : [],
+            links: content.includes("links") ? links : [],
+            tables: content.includes("tables") ? tables : []
+        };
+
+        // -----------------------------
+        // Return structured result
+        // -----------------------------
 
         return res.status(200).json({
             success: true,
 
-            data: {
-                html
-            },
+            data: selectedContent,
 
             meta: {
                 url: targetUrl.toString(),
                 status: response.status,
                 statusText: response.statusText,
-                contentType: response.headers.get("content-type"),
+                contentType,
                 contentLength: html.length,
                 duration
             },
@@ -176,3 +208,136 @@ module.exports = async function handler(req, res) {
         });
     }
 };
+
+
+// ==========================================
+// Metadata
+// ==========================================
+
+function extractMetadata($, targetUrl) {
+    return {
+        title: $("title").first().text().trim() || null,
+
+        description:
+            $('meta[name="description"]')
+                .attr("content")
+                ?.trim() || null,
+
+        canonical:
+            $('link[rel="canonical"]')
+                .attr("href") || targetUrl.toString()
+    };
+}
+
+
+// ==========================================
+// Text
+// ==========================================
+
+function extractText($) {
+    const text = [];
+
+    $("h1, h2, h3, h4, h5, h6, p").each((_, element) => {
+        const value = $(element)
+            .text()
+            .replace(/\s+/g, " ")
+            .trim();
+
+        if (value) {
+            text.push(value);
+        }
+    });
+
+    return text;
+}
+
+
+// ==========================================
+// Links
+// ==========================================
+
+function extractLinks($, baseUrl) {
+    const links = [];
+
+    $("a[href]").each((_, element) => {
+        const text = $(element)
+            .text()
+            .replace(/\s+/g, " ")
+            .trim();
+
+        const href = $(element).attr("href");
+
+        if (!href) return;
+
+        try {
+            const absoluteUrl = new URL(href, baseUrl).toString();
+
+            links.push({
+                text: text || absoluteUrl,
+                url: absoluteUrl
+            });
+
+        } catch {
+            // Ignore malformed URLs
+        }
+    });
+
+    return links;
+}
+
+
+// ==========================================
+// Tables
+// ==========================================
+
+function extractTables($) {
+    const tables = [];
+
+    $("table").each((_, table) => {
+        const headers = [];
+        const rows = [];
+
+        $(table)
+            .find("thead tr th")
+            .each((_, element) => {
+                const value = $(element)
+                    .text()
+                    .replace(/\s+/g, " ")
+                    .trim();
+
+                if (value) {
+                    headers.push(value);
+                }
+            });
+
+        $(table)
+            .find("tbody tr")
+            .each((_, row) => {
+                const cells = [];
+
+                $(row)
+                    .find("th, td")
+                    .each((_, cell) => {
+                        cells.push(
+                            $(cell)
+                                .text()
+                                .replace(/\s+/g, " ")
+                                .trim()
+                        );
+                    });
+
+                if (cells.length) {
+                    rows.push(cells);
+                }
+            });
+
+        if (headers.length || rows.length) {
+            tables.push({
+                headers,
+                rows
+            });
+        }
+    });
+
+    return tables;
+}

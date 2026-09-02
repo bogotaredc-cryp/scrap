@@ -1,0 +1,8 @@
+{
+  "name": "scraper",
+  "version": "0.3.0",
+  "private": true,
+  "dependencies": {
+    "cheerio": "^1.1.2"
+  }
+}
