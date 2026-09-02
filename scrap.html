@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="Web scraping and structured data extraction tool."
+    >
+
+    <meta
+        name="robots"
+        content="noindex, nofollow"
+    >
+
+    <title>Scraper — Web Data Extraction</title>
+
+
+    <!-- =====================================================
+         FONT
+         ===================================================== -->
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com"
+    >
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin
+    >
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    >
+
+
+    <!-- =====================================================
+         STYLES
+         ===================================================== -->
+
+    <link
+        rel="stylesheet"
+        href="assets/css/scrap.css"
+    >
+
+</head>
+
+
+<body>
+
+    <div class="scraper-app">
+
+        <div class="scraper-container">
+
+
+            <!-- =================================================
+                 HEADER
+                 ================================================= -->
+
+            <header class="scraper-header">
+
+                <div class="scraper-header-inner">
+
+
+                    <!-- BRAND -->
+
+                    <a
+                        href="../index.html"
+                        class="scraper-brand"
+                        aria-label="Back to main page"
+                    >
+
+                        <div
+                            class="scraper-brand-mark"
+                            aria-hidden="true"
+                        >
+                            S
+                        </div>
+
+
+                        <div class="scraper-brand-content">
+
+                            <p class="scraper-brand-title">
+                                SCRAPER
+                            </p>
+
+                            <p class="scraper-brand-subtitle">
+                                Web Data Extraction
+                            </p>
+
+                        </div>
+
+                    </a>
+
+
+                    <!-- SYSTEM STATUS -->
+
+                    <div
+                        class="system-status"
+                        id="system-status"
+                        aria-label="System status"
+                    >
+
+                        <span
+                            class="system-status-dot"
+                            id="system-status-dot"
+                            aria-hidden="true"
+                        ></span>
+
+                        <span id="system-status-text">
+                            System Ready
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </header>
+
+
+
+            <!-- =================================================
+                 MAIN
+                 ================================================= -->
+
+            <main>
+
+
+                <!-- =================================================
+                     HERO
+                     ================================================= -->
+
+                <section
+                    class="scraper-hero"
+                    aria-labelledby="scraper-title"
+                >
+
+                    <h1 id="scraper-title">
+                        Web Data Extraction
+                    </h1>
+
+
+                    <p>
+                        Extract and structure information from
+                        accessible web sources quickly and efficiently.
+                    </p>
+
+
+                    <!-- =================================================
+                         URL FORM
+                         ================================================= -->
+
+                    <div class="scraper-url-wrapper">
+
+                        <form
+                            class="scraper-url-form"
+                            id="scraper-form"
+                            novalidate
+                        >
+
+
+                            <!-- URL ICON -->
+
+                            <div
+                                class="scraper-url-icon"
+                                aria-hidden="true"
+                            >
+                                ↗
+                            </div>
+
+
+                            <!-- URL INPUT -->
+
+                            <input
+                                type="url"
+                                id="scraper-url"
+                                class="scraper-url-input"
+                                name="url"
+                                placeholder="https://example.com"
+                                autocomplete="url"
+                                spellcheck="false"
+                                required
+                                aria-label="Website URL"
+                                aria-describedby="url-help"
+                            >
+
+
+                            <!-- SUBMIT -->
+
+                            <button
+                                type="submit"
+                                class="scraper-submit"
+                                id="scraper-submit"
+                            >
+                                <span class="submit-label">
+                                    Scrape
+                                </span>
+
+                                <span
+                                    class="loading-indicator"
+                                    id="submit-loading"
+                                    hidden
+                                >
+
+                                    <span
+                                        class="loading-spinner"
+                                        aria-hidden="true"
+                                    ></span>
+
+                                    <span>
+                                        Processing
+                                    </span>
+
+                                </span>
+
+                            </button>
+
+                        </form>
+
+
+                        <p
+                            id="url-help"
+                            class="field-description"
+                            hidden
+                        >
+                            Enter a valid publicly accessible URL.
+                        </p>
+
+                    </div>
+
+                </section>
+
+
+
+                <!-- =================================================
+                     CONFIGURATION
+                     ================================================= -->
+
+                <section
+                    class="scraper-config"
+                    aria-label="Scraper configuration"
+                >
+
+
+                    <!-- =================================================
+                         REQUEST
+                         ================================================= -->
+
+                    <article class="config-card">
+
+                        <div class="config-card-header">
+
+                            <div>
+
+                                <h2 class="config-card-title">
+                                    Request
+                                </h2>
+
+                                <p class="config-card-description">
+                                    Configure how the source is requested.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="config-fields">
+
+
+                            <!-- METHOD -->
+
+                            <div class="field">
+
+                                <label
+                                    for="request-method"
+                                    class="field-label"
+                                >
+                                    Method
+                                </label>
+
+
+                                <select
+                                    id="request-method"
+                                    name="method"
+                                    class="field-control"
+                                >
+
+                                    <option value="GET">
+                                        GET
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <!-- TIMEOUT -->
+
+                            <div class="field">
+
+                                <label
+                                    for="request-timeout"
+                                    class="field-label"
+                                >
+                                    Timeout
+                                </label>
+
+
+                                <select
+                                    id="request-timeout"
+                                    name="timeout"
+                                    class="field-control"
+                                >
+
+                                    <option value="5">
+                                        5 seconds
+                                    </option>
+
+                                    <option
+                                        value="10"
+                                        selected
+                                    >
+                                        10 seconds
+                                    </option>
+
+                                    <option value="20">
+                                        20 seconds
+                                    </option>
+
+                                    <option value="30">
+                                        30 seconds
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+                        </div>
+
+                    </article>
+
+
+
+                    <!-- =================================================
+                         EXTRACTION
+                         ================================================= -->
+
+                    <article class="config-card">
+
+                        <div class="config-card-header">
+
+                            <div>
+
+                                <h2 class="config-card-title">
+                                    Extraction
+                                </h2>
+
+                                <p class="config-card-description">
+                                    Define what information should be extracted.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="config-fields">
+
+
+                            <!-- MODE -->
+
+                            <div class="field">
+
+                                <label
+                                    for="extraction-mode"
+                                    class="field-label"
+                                >
+                                    Mode
+                                </label>
+
+
+                                <select
+                                    id="extraction-mode"
+                                    name="mode"
+                                    class="field-control"
+                                >
+
+                                    <option value="auto">
+                                        Automatic
+                                    </option>
+
+                                    <option value="structured">
+                                        Structured
+                                    </option>
+
+                                    <option value="custom">
+                                        Custom selectors
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <!-- CONTENT -->
+
+                            <div class="field">
+
+                                <span class="field-label">
+                                    Data types
+                                </span>
+
+
+                                <div class="checkbox-grid">
+
+
+                                    <!-- TEXT -->
+
+                                    <label class="checkbox">
+
+                                        <input
+                                            type="checkbox"
+                                            name="content"
+                                            value="text"
+                                            checked
+                                        >
+
+                                        <span>
+                                            Text
+                                        </span>
+
+                                    </label>
+
+
+                                    <!-- LINKS -->
+
+                                    <label class="checkbox">
+
+                                        <input
+                                            type="checkbox"
+                                            name="content"
+                                            value="links"
+                                            checked
+                                        >
+
+                                        <span>
+                                            Links
+                                        </span>
+
+                                    </label>
+
+
+                                    <!-- TABLES -->
+
+                                    <label class="checkbox">
+
+                                        <input
+                                            type="checkbox"
+                                            name="content"
+                                            value="tables"
+                                        >
+
+                                        <span>
+                                            Tables
+                                        </span>
+
+                                    </label>
+
+
+                                    <!-- METADATA -->
+
+                                    <label class="checkbox">
+
+                                        <input
+                                            type="checkbox"
+                                            name="content"
+                                            value="metadata"
+                                        >
+
+                                        <span>
+                                            Metadata
+                                        </span>
+
+                                    </label>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </article>
+
+                </section>
+
+
+
+                <!-- =================================================
+                     RESULTS
+                     ================================================= -->
+
+                <section
+                    class="results-section"
+                    aria-labelledby="results-title"
+                >
+
+
+                    <!-- RESULTS HEADER -->
+
+                    <div class="results-header">
+
+
+                        <div class="results-heading">
+
+                            <h2 id="results-title">
+                                Results
+                            </h2>
+
+                            <span
+                                class="results-count"
+                                id="results-count"
+                            >
+                                0 records
+                            </span>
+
+                        </div>
+
+
+                        <!-- EXPORT ACTIONS -->
+
+                        <div class="results-actions">
+
+                            <button
+                                type="button"
+                                class="secondary-button"
+                                id="export-json"
+                                disabled
+                            >
+                                JSON
+                            </button>
+
+
+                            <button
+                                type="button"
+                                class="secondary-button"
+                                id="export-csv"
+                                disabled
+                            >
+                                CSV
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- RESULTS PANEL -->
+
+                    <div
+                        class="results-panel"
+                        id="results-panel"
+                    >
+
+
+                        <!-- =================================================
+                             EMPTY STATE
+                             ================================================= -->
+
+                        <div
+                            class="empty-state"
+                            id="empty-state"
+                        >
+
+                            <div
+                                class="empty-state-icon"
+                                aria-hidden="true"
+                            >
+                                ◇
+                            </div>
+
+
+                            <h3>
+                                No results yet
+                            </h3>
+
+
+                            <p>
+                                Enter a URL above to start
+                                a scraping request.
+                            </p>
+
+                        </div>
+
+
+
+                        <!-- =================================================
+                             RESULTS TABLE
+                             ================================================= -->
+
+                        <div
+                            class="results-table-wrapper"
+                            id="results-table-wrapper"
+                            hidden
+                        >
+
+                            <table
+                                class="results-table"
+                                id="results-table"
+                            >
+
+                                <thead>
+
+                                    <tr>
+
+                                        <th scope="col">
+                                            Name
+                                        </th>
+
+                                        <th scope="col">
+                                            URL
+                                        </th>
+
+                                        <th scope="col">
+                                            Type
+                                        </th>
+
+                                        <th scope="col">
+                                            Content
+                                        </th>
+
+                                    </tr>
+
+                                </thead>
+
+
+                                <tbody id="results-body">
+                                    <!-- Dynamic results -->
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+
+
+                        <!-- =================================================
+                             ERROR STATE
+                             ================================================= -->
+
+                        <div
+                            class="empty-state"
+                            id="error-state"
+                            hidden
+                        >
+
+                            <div
+                                class="empty-state-icon"
+                                aria-hidden="true"
+                            >
+                                !
+                            </div>
+
+
+                            <h3>
+                                Extraction failed
+                            </h3>
+
+
+                            <p id="error-message">
+                                Something went wrong while processing
+                                the requested source.
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+
+                <!-- =================================================
+                     ACTIVITY / LOGS
+                     ================================================= -->
+
+                <section
+                    class="activity-section"
+                    aria-labelledby="activity-title"
+                >
+
+                    <div class="activity-header">
+
+                        <h2 id="activity-title">
+                            Activity
+                        </h2>
+
+                    </div>
+
+
+                    <div
+                        class="activity-panel"
+                        id="activity-panel"
+                        aria-live="polite"
+                        aria-atomic="false"
+                    >
+
+                        <div class="activity-line">
+
+                            <span class="activity-time">
+                                --:--:--
+                            </span>
+
+
+                            <span class="activity-message">
+                                System ready. Waiting for a scraping request.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+            </main>
+
+
+
+            <!-- =================================================
+                 FOOTER
+                 ================================================= -->
+
+            <footer class="scraper-footer">
+
+                <p>
+                    Scraper Tool · Web Data Extraction
+                </p>
+
+            </footer>
+
+
+        </div>
+
+    </div>
+
+
+
+    <!-- =====================================================
+         JAVASCRIPT
+         ===================================================== -->
+
+    <script
+        src="assets/js/scraper.js"
+        defer
+    ></script>
+
+</body>
+
+</html>
