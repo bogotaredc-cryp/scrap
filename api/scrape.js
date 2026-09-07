@@ -294,49 +294,91 @@ function extractTables($) {
     const tables = [];
 
     $("table").each((_, table) => {
-        const headers = [];
         const rows = [];
 
+        // Extraer todas las filas, sin depender de thead/tbody
         $(table)
-            .find("thead tr th")
-            .each((_, element) => {
-                const value = $(element)
-                    .text()
-                    .replace(/\s+/g, " ")
-                    .trim();
-
-                if (value) {
-                    headers.push(value);
-                }
-            });
-
-        $(table)
-            .find("tbody tr")
+            .find("tr")
             .each((_, row) => {
                 const cells = [];
 
                 $(row)
                     .find("th, td")
                     .each((_, cell) => {
-                        cells.push(
-                            $(cell)
-                                .text()
-                                .replace(/\s+/g, " ")
-                                .trim()
-                        );
+                        const value = $(cell)
+                            .text()
+                            .replace(/\s+/g, " ")
+                            .trim();
+
+                        cells.push(value);
                     });
 
-                if (cells.length) {
+                // Ignorar filas completamente vacías
+                if (cells.some(Boolean)) {
                     rows.push(cells);
                 }
             });
 
-        if (headers.length || rows.length) {
-            tables.push({
-                headers,
-                rows
-            });
+        if (!rows.length) {
+            return;
         }
+
+        // ------------------------------------------
+        // Detectar encabezados
+        // ------------------------------------------
+
+        let headers = [];
+        let dataRows = rows;
+
+        const firstRow = rows[0];
+
+        const firstRowHasTh =
+            $(table)
+                .find("tr")
+                .first()
+                .find("th")
+                .length > 0;
+
+        if (firstRowHasTh && firstRow.length > 1) {
+            headers = firstRow;
+            dataRows = rows.slice(1);
+        }
+
+        // ------------------------------------------
+        // Detectar estructuras Campo → Valor
+        // ------------------------------------------
+
+        const keyValue = [];
+
+        for (const row of rows) {
+            if (row.length < 2) {
+                continue;
+            }
+
+            const key = row[0];
+
+            const value = row
+                .slice(1)
+                .filter(Boolean)
+                .join(" | ");
+
+            if (key && value) {
+                keyValue.push({
+                    key,
+                    value
+                });
+            }
+        }
+
+        // ------------------------------------------
+        // Guardar tabla
+        // ------------------------------------------
+
+        tables.push({
+            headers,
+            rows: dataRows,
+            keyValue
+        });
     });
 
     return tables;
