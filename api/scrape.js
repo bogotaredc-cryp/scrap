@@ -142,6 +142,52 @@ module.exports = async function handler(req, res) {
 
         const $ = cheerio.load(html);
 
+        // -----------------------------
+        // Detect CAPTCHA / anti-bot page
+        // -----------------------------
+
+        const pageTitle = $("title")
+            .text()
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase();
+
+        const pageBody = $("body")
+            .text()
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase();
+
+        const captchaDetected =
+            pageTitle.includes("recaptcha") ||
+            pageTitle.includes("captcha") ||
+            pageBody.includes("por favor complete la validación") ||
+            pageBody.includes("complete la validación") ||
+            pageBody.includes("recaptcha");
+
+        if (captchaDetected) {
+            return res.status(403).json({
+                success: false,
+                requiresVerification: true,
+
+                error: {
+                    code: "CAPTCHA_REQUIRED",
+                    message: "The source requires CAPTCHA verification."
+                },
+
+                meta: {
+                    url: targetUrl.toString(),
+                    status: response.status,
+                    contentType,
+                    duration: Date.now() - startedAt
+                }
+            });
+        }
+
+        // -----------------------------
+        // Extract content
+        // -----------------------------
+
         const metadata = extractMetadata($, targetUrl);
         const text = extractText($);
         const links = extractLinks($, targetUrl);
