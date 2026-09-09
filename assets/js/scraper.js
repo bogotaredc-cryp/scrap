@@ -1,7 +1,7 @@
-
 /* =========================================================
    SCRAPER — FRONTEND CONTROLLER
-   Version: 0.2
+   Version: 0.3
+   CAPTCHA / MANUAL VERIFICATION UI
    ========================================================= */
 
 "use strict";
@@ -11,12 +11,20 @@
    DOM ELEMENTS
    ========================================================= */
 
-const form = document.getElementById("scraper-form");
-const urlInput = document.getElementById("scraper-url");
-const submitButton = document.getElementById("scraper-submit");
+const form =
+    document.getElementById("scraper-form");
 
-const submitLabel = document.querySelector(".submit-label");
-const submitLoading = document.getElementById("submit-loading");
+const urlInput =
+    document.getElementById("scraper-url");
+
+const submitButton =
+    document.getElementById("scraper-submit");
+
+const submitLabel =
+    document.querySelector(".submit-label");
+
+const submitLoading =
+    document.getElementById("submit-loading");
 
 const systemStatusText =
     document.getElementById("system-status-text");
@@ -50,6 +58,20 @@ const activityPanel =
 
 
 /* =========================================================
+   CAPTCHA / MANUAL VERIFICATION ELEMENTS
+   ========================================================= */
+
+const verificationPanel =
+    document.getElementById("verification-panel");
+
+const verificationButton =
+    document.getElementById("verification-button");
+
+const continueScrapingButton =
+    document.getElementById("continue-scraping");
+
+
+/* =========================================================
    CONFIGURATION ELEMENTS
    ========================================================= */
 
@@ -80,7 +102,9 @@ const state = {
 
     lastUrl: null,
 
-    lastRequest: null
+    lastRequest: null,
+
+    verificationRequired: false
 
 };
 
@@ -101,6 +125,8 @@ function initializeApplication() {
 
     disableExportButtons();
 
+    hideVerificationPanel();
+
     setSystemStatus("ready");
 
     logActivity(
@@ -114,33 +140,37 @@ function initializeApplication() {
    FORM SUBMISSION
    ========================================================= */
 
-form.addEventListener(
-    "submit",
-    async (event) => {
+if (form) {
 
-        event.preventDefault();
+    form.addEventListener(
+        "submit",
+        async (event) => {
 
-        if (state.isLoading) {
-            return;
+            event.preventDefault();
+
+            if (state.isLoading) {
+                return;
+            }
+
+            const url =
+                urlInput.value.trim();
+
+            if (!validateUrl(url)) {
+                return;
+            }
+
+            const configuration =
+                getScraperConfiguration();
+
+            await startScraping(
+                url,
+                configuration
+            );
+
         }
+    );
 
-        const url =
-            urlInput.value.trim();
-
-        if (!validateUrl(url)) {
-            return;
-        }
-
-        const configuration =
-            getScraperConfiguration();
-
-        await startScraping(
-            url,
-            configuration
-        );
-
-    }
-);
+}
 
 
 /* =========================================================
@@ -155,7 +185,11 @@ function getScraperConfiguration() {
         (input) => {
 
             if (input.checked) {
-                content.push(input.value);
+
+                content.push(
+                    input.value
+                );
+
             }
 
         }
@@ -168,10 +202,13 @@ function getScraperConfiguration() {
             methodInput?.value || "GET",
 
         timeout:
-            Number(timeoutInput?.value || 10),
+            Number(
+                timeoutInput?.value || 10
+            ),
 
         mode:
-            extractionModeInput?.value || "auto",
+            extractionModeInput?.value ||
+            "auto",
 
         content
 
@@ -195,6 +232,7 @@ function validateUrl(value) {
         urlInput.focus();
 
         return false;
+
     }
 
 
@@ -248,6 +286,10 @@ async function startScraping(
 
     clearResults();
 
+    hideVerificationPanel();
+
+    state.verificationRequired = false;
+
     state.lastUrl = url;
 
     state.lastRequest = {
@@ -294,27 +336,30 @@ async function startScraping(
                     method: "POST",
 
                     headers: {
+
                         "Content-Type":
                             "application/json"
+
                     },
 
-                    body: JSON.stringify({
+                    body:
+                        JSON.stringify({
 
-                        url,
+                            url,
 
-                        method:
-                            configuration.method,
+                            method:
+                                configuration.method,
 
-                        timeout:
-                            configuration.timeout,
+                            timeout:
+                                configuration.timeout,
 
-                        mode:
-                            configuration.mode,
+                            mode:
+                                configuration.mode,
 
-                        content:
-                            configuration.content
+                            content:
+                                configuration.content
 
-                    })
+                        })
 
                 }
             );
@@ -342,6 +387,40 @@ async function startScraping(
         }
 
 
+        /* =================================================
+           CAPTCHA DETECTION
+           ================================================= */
+
+        if (
+            result?.requiresVerification === true
+        ) {
+
+            state.verificationRequired =
+                true;
+
+
+            setSystemStatus(
+                "verification"
+            );
+
+
+            logActivity(
+                "Source requires manual CAPTCHA verification."
+            );
+
+
+            showVerificationRequired();
+
+
+            return;
+
+        }
+
+
+        /* =================================================
+           NORMAL ERROR HANDLING
+           ================================================= */
+
         if (
             !response.ok ||
             !result.success
@@ -351,12 +430,17 @@ async function startScraping(
                 result?.error?.message ||
                 "The source could not be processed.";
 
+
             throw new Error(
                 message
             );
 
         }
 
+
+        /* =================================================
+           NORMALIZE RESULTS
+           ================================================= */
 
         const data =
             normalizeResults(
@@ -387,6 +471,7 @@ async function startScraping(
                 );
 
             }
+
 
             if (result.meta.duration) {
 
@@ -433,6 +518,220 @@ async function startScraping(
         setLoading(false);
 
     }
+
+}
+
+
+/* =========================================================
+   CAPTCHA / MANUAL VERIFICATION
+   ========================================================= */
+
+function showVerificationRequired() {
+
+    hideElement(
+        emptyState
+    );
+
+    hideElement(
+        resultsTableWrapper
+    );
+
+    hideElement(
+        errorState
+    );
+
+
+    if (verificationPanel) {
+
+        showElement(
+            verificationPanel
+        );
+
+    }
+
+
+    if (verificationButton) {
+
+        verificationButton.disabled =
+            false;
+
+    }
+
+
+    if (continueScrapingButton) {
+
+        hideElement(
+            continueScrapingButton
+        );
+
+    }
+
+
+    logActivity(
+        "Verification panel displayed."
+    );
+
+}
+
+
+/* =========================================================
+   HIDE VERIFICATION PANEL
+   ========================================================= */
+
+function hideVerificationPanel() {
+
+    if (verificationPanel) {
+
+        hideElement(
+            verificationPanel
+        );
+
+    }
+
+
+    if (continueScrapingButton) {
+
+        hideElement(
+            continueScrapingButton
+        );
+
+    }
+
+
+    state.verificationRequired =
+        false;
+
+}
+
+
+/* =========================================================
+   VERIFICATION BUTTON
+   ========================================================= */
+
+if (verificationButton) {
+
+    verificationButton.addEventListener(
+        "click",
+        () => {
+
+            if (!state.lastUrl) {
+
+                showError(
+                    "No scraping request is available for verification."
+                );
+
+                return;
+
+            }
+
+
+            logActivity(
+                "Manual verification requested."
+            );
+
+
+            /*
+             * IMPORTANT:
+             *
+             * The current backend uses server-side fetch().
+             *
+             * Therefore this button cannot yet open the real
+             * CAPTCHA inside the same scraping session.
+             *
+             * The real browser/session implementation will be
+             * connected in the backend phase.
+             */
+
+
+            alert(
+                "The source requires CAPTCHA verification. " +
+                "Complete the verification on the source website, " +
+                "then return here and continue the scraping process."
+            );
+
+
+            /*
+             * Once the backend supports persistent browser
+             * sessions, this button will start the real
+             * verification flow.
+             */
+
+
+            if (continueScrapingButton) {
+
+                showElement(
+                    continueScrapingButton
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   CONTINUE SCRAPING
+   ========================================================= */
+
+if (continueScrapingButton) {
+
+    continueScrapingButton.addEventListener(
+        "click",
+        async () => {
+
+            if (state.isLoading) {
+                return;
+            }
+
+
+            if (!state.lastUrl) {
+
+                showError(
+                    "No previous scraping request is available."
+                );
+
+                return;
+
+            }
+
+
+            logActivity(
+                "Continuing scraping process..."
+            );
+
+
+            hideVerificationPanel();
+
+
+            const configuration =
+                state.lastRequest
+                    ? {
+
+                        method:
+                            state.lastRequest.method,
+
+                        timeout:
+                            state.lastRequest.timeout,
+
+                        mode:
+                            state.lastRequest.mode,
+
+                        content:
+                            state.lastRequest.content
+
+                    }
+                    : getScraperConfiguration();
+
+
+            await startScraping(
+                state.lastUrl,
+                configuration
+            );
+
+        }
+    );
 
 }
 
@@ -532,11 +831,12 @@ function normalizeResults(
      * The backend can eventually return
      * structured data by category.
      *
-     * For now we support:
+     * Supported:
      *
      * 1. data as an array
      * 2. data as an object
      */
+
 
     if (
         Array.isArray(
@@ -577,9 +877,9 @@ function flattenStructuredData(
     const results = [];
 
 
-    /*
-     * Metadata
-     */
+    /* =====================================================
+       METADATA
+       ===================================================== */
 
     if (data.metadata) {
 
@@ -590,15 +890,19 @@ function flattenStructuredData(
 
                 results.push({
 
-                    name: key,
+                    name:
+                        key,
 
                     url:
                         state.lastUrl || "",
 
-                    type: "metadata",
+                    type:
+                        "metadata",
 
                     content:
-                        String(value ?? "")
+                        String(
+                            value ?? ""
+                        )
 
                 });
 
@@ -608,9 +912,9 @@ function flattenStructuredData(
     }
 
 
-    /*
-     * Text
-     */
+    /* =====================================================
+       TEXT
+       ===================================================== */
 
     if (
         Array.isArray(
@@ -629,10 +933,13 @@ function flattenStructuredData(
                     url:
                         state.lastUrl || "",
 
-                    type: "text",
+                    type:
+                        "text",
 
                     content:
-                        String(text ?? "")
+                        String(
+                            text ?? ""
+                        )
 
                 });
 
@@ -642,9 +949,9 @@ function flattenStructuredData(
     }
 
 
-    /*
-     * Links
-     */
+    /* =====================================================
+       LINKS
+       ===================================================== */
 
     if (
         Array.isArray(
@@ -666,7 +973,8 @@ function flattenStructuredData(
                         state.lastUrl ||
                         "",
 
-                    type: "link",
+                    type:
+                        "link",
 
                     content:
                         link.text ||
@@ -681,13 +989,9 @@ function flattenStructuredData(
     }
 
 
-    /*
-     * Tables
-     *
-     * Tables are converted into
-     * readable JSON strings for
-     * the current results table.
-     */
+    /* =====================================================
+       TABLES
+       ===================================================== */
 
     if (
         Array.isArray(
@@ -706,7 +1010,8 @@ function flattenStructuredData(
                     url:
                         state.lastUrl || "",
 
-                    type: "table",
+                    type:
+                        "table",
 
                     content:
                         JSON.stringify(
@@ -742,6 +1047,8 @@ function renderResults(
         errorState
     );
 
+    hideVerificationPanel();
+
 
     if (!data.length) {
 
@@ -770,7 +1077,9 @@ function renderResults(
         (item) => {
 
             const row =
-                document.createElement("tr");
+                document.createElement(
+                    "tr"
+                );
 
 
             row.innerHTML = `
@@ -782,9 +1091,11 @@ function renderResults(
                 </td>
 
                 <td>
+
                     ${
                         item.url
                             ? `
+
                                 <a
                                     href="${escapeAttribute(
                                         item.url
@@ -792,13 +1103,17 @@ function renderResults(
                                     target="_blank"
                                     rel="noopener noreferrer"
                                 >
+
                                     ${escapeHtml(
                                         item.url
                                     )}
+
                                 </a>
+
                               `
                             : "—"
                     }
+
                 </td>
 
                 <td>
@@ -839,7 +1154,12 @@ function clearResults() {
 
     state.results = [];
 
-    resultsBody.innerHTML = "";
+
+    if (resultsBody) {
+
+        resultsBody.innerHTML = "";
+
+    }
 
 
     hideElement(
@@ -850,6 +1170,9 @@ function clearResults() {
     hideElement(
         errorState
     );
+
+
+    hideVerificationPanel();
 
 
     showElement(
@@ -869,6 +1192,11 @@ function clearResults() {
    ========================================================= */
 
 function updateResultsCount() {
+
+    if (!resultsCount) {
+        return;
+    }
+
 
     const count =
         state.results.length;
@@ -921,6 +1249,22 @@ function setLoading(
 
         }
 
+
+        if (verificationButton) {
+
+            verificationButton.disabled =
+                true;
+
+        }
+
+
+        if (continueScrapingButton) {
+
+            continueScrapingButton.disabled =
+                true;
+
+        }
+
     } else {
 
         submitButton.disabled =
@@ -943,6 +1287,22 @@ function setLoading(
 
             submitLoading.hidden =
                 true;
+
+        }
+
+
+        if (verificationButton) {
+
+            verificationButton.disabled =
+                false;
+
+        }
+
+
+        if (continueScrapingButton) {
+
+            continueScrapingButton.disabled =
+                false;
 
         }
 
@@ -971,6 +1331,7 @@ function setSystemStatus(
 
         },
 
+
         processing: {
 
             text:
@@ -980,6 +1341,18 @@ function setSystemStatus(
                 "status-warning"
 
         },
+
+
+        verification: {
+
+            text:
+                "Verification Required",
+
+            className:
+                "status-warning"
+
+        },
+
 
         error: {
 
@@ -999,12 +1372,16 @@ function setSystemStatus(
         statusConfig.ready;
 
 
-    systemStatusText.textContent =
-        config.text;
+    if (systemStatusText) {
+
+        systemStatusText.textContent =
+            config.text;
 
 
-    systemStatusText.className =
-        config.className;
+        systemStatusText.className =
+            config.className;
+
+    }
 
 }
 
@@ -1017,8 +1394,12 @@ function showError(
     message
 ) {
 
-    errorMessage.textContent =
-        message;
+    if (errorMessage) {
+
+        errorMessage.textContent =
+            message;
+
+    }
 
 
     hideElement(
@@ -1029,6 +1410,9 @@ function showError(
     hideElement(
         resultsTableWrapper
     );
+
+
+    hideVerificationPanel();
 
 
     showElement(
@@ -1051,78 +1435,86 @@ function clearError() {
    EXPORT — JSON
    ========================================================= */
 
-exportJsonButton.addEventListener(
-    "click",
-    () => {
+if (exportJsonButton) {
 
-        if (
-            !state.results.length
-        ) {
+    exportJsonButton.addEventListener(
+        "click",
+        () => {
 
-            return;
+            if (
+                !state.results.length
+            ) {
 
-        }
+                return;
+
+            }
 
 
-        const json =
-            JSON.stringify(
-                state.results,
-                null,
-                2
+            const json =
+                JSON.stringify(
+                    state.results,
+                    null,
+                    2
+                );
+
+
+            downloadFile(
+                json,
+                "scraping-results.json",
+                "application/json"
             );
 
 
-        downloadFile(
-            json,
-            "scraping-results.json",
-            "application/json"
-        );
+            logActivity(
+                "JSON export generated."
+            );
 
+        }
+    );
 
-        logActivity(
-            "JSON export generated."
-        );
-
-    }
-);
+}
 
 
 /* =========================================================
    EXPORT — CSV
    ========================================================= */
 
-exportCsvButton.addEventListener(
-    "click",
-    () => {
+if (exportCsvButton) {
 
-        if (
-            !state.results.length
-        ) {
+    exportCsvButton.addEventListener(
+        "click",
+        () => {
 
-            return;
+            if (
+                !state.results.length
+            ) {
 
-        }
+                return;
+
+            }
 
 
-        const csv =
-            convertToCsv(
-                state.results
+            const csv =
+                convertToCsv(
+                    state.results
+                );
+
+
+            downloadFile(
+                csv,
+                "scraping-results.csv",
+                "text/csv;charset=utf-8;"
             );
 
 
-        downloadFile(
-            csv,
-            "scraping-results.csv",
-            "text/csv;charset=utf-8;"
-        );
+            logActivity(
+                "CSV export generated."
+            );
 
+        }
+    );
 
-        logActivity(
-            "CSV export generated."
-        );
-
-    }
-);
+}
 
 
 /* =========================================================
@@ -1134,15 +1526,19 @@ function convertToCsv(
 ) {
 
     if (!data.length) {
+
         return "";
+
     }
 
 
     const headers = [
+
         "name",
         "url",
         "type",
         "content"
+
     ];
 
 
@@ -1164,8 +1560,11 @@ function convertToCsv(
 
 
     return [
+
         headers.join(","),
+
         ...rows
+
     ].join("\n");
 
 }
@@ -1222,6 +1621,7 @@ function downloadFile(
     link.href =
         downloadUrl;
 
+
     link.download =
         filename;
 
@@ -1253,7 +1653,9 @@ function logActivity(
 ) {
 
     if (!activityPanel) {
+
         return;
+
     }
 
 
@@ -1265,9 +1667,16 @@ function logActivity(
         now.toLocaleTimeString(
             [],
             {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit"
+
+                hour:
+                    "2-digit",
+
+                minute:
+                    "2-digit",
+
+                second:
+                    "2-digit"
+
             }
         );
 
@@ -1285,11 +1694,15 @@ function logActivity(
     line.innerHTML = `
 
         <span class="activity-time">
+
             ${escapeHtml(time)}
+
         </span>
 
         <span class="activity-message">
+
             ${escapeHtml(message)}
+
         </span>
 
     `;
@@ -1312,22 +1725,40 @@ function logActivity(
 
 function enableExportButtons() {
 
-    exportJsonButton.disabled =
-        false;
+    if (exportJsonButton) {
 
-    exportCsvButton.disabled =
-        false;
+        exportJsonButton.disabled =
+            false;
+
+    }
+
+
+    if (exportCsvButton) {
+
+        exportCsvButton.disabled =
+            false;
+
+    }
 
 }
 
 
 function disableExportButtons() {
 
-    exportJsonButton.disabled =
-        true;
+    if (exportJsonButton) {
 
-    exportCsvButton.disabled =
-        true;
+        exportJsonButton.disabled =
+            true;
+
+    }
+
+
+    if (exportCsvButton) {
+
+        exportCsvButton.disabled =
+            true;
+
+    }
 
 }
 
@@ -1341,8 +1772,11 @@ function showElement(
 ) {
 
     if (!element) {
+
         return;
+
     }
+
 
     element.hidden =
         false;
@@ -1355,8 +1789,11 @@ function hideElement(
 ) {
 
     if (!element) {
+
         return;
+
     }
+
 
     element.hidden =
         true;
@@ -1373,22 +1810,27 @@ function escapeHtml(
 ) {
 
     return String(value)
+
         .replace(
             /&/g,
             "&amp;"
         )
+
         .replace(
             /</g,
             "&lt;"
         )
+
         .replace(
             />/g,
             "&gt;"
         )
+
         .replace(
             /"/g,
             "&quot;"
         )
+
         .replace(
             /'/g,
             "&#039;"
@@ -1406,4 +1848,3 @@ function escapeAttribute(
     );
 
 }
-

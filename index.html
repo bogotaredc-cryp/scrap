@@ -201,9 +201,11 @@
                                 class="scraper-submit"
                                 id="scraper-submit"
                             >
+
                                 <span class="submit-label">
                                     Scrape
                                 </span>
+
 
                                 <span
                                     class="loading-indicator"
@@ -683,6 +685,75 @@
                             </p>
 
                         </div>
+
+                    </div>
+
+                </section>
+
+
+
+                <!-- =================================================
+                     CAPTCHA / MANUAL VERIFICATION
+                     ================================================= -->
+
+                <section
+                    class="verification-panel"
+                    id="verification-panel"
+                    hidden
+                    aria-labelledby="verification-title"
+                >
+
+                    <div
+                        class="verification-icon"
+                        aria-hidden="true"
+                    >
+                        !
+                    </div>
+
+
+                    <div class="verification-content">
+
+                        <h2 id="verification-title">
+                            Verification required
+                        </h2>
+
+
+                        <p>
+                            The source requires a manual CAPTCHA
+                            verification before the scraping process
+                            can continue.
+                        </p>
+
+
+                        <p class="verification-help">
+                            Complete the verification manually and
+                            continue the scraping process.
+                        </p>
+
+                    </div>
+
+
+                    <!-- VERIFICATION ACTION -->
+
+                    <div class="verification-actions">
+
+                        <button
+                            type="button"
+                            class="scraper-submit"
+                            id="verification-button"
+                        >
+                            Complete verification
+                        </button>
+
+
+                        <button
+                            type="button"
+                            class="secondary-button"
+                            id="continue-scraping"
+                            hidden
+                        >
+                            Continue scraping
+                        </button>
 
                     </div>
 
