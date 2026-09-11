@@ -104,7 +104,11 @@ const state = {
 
     lastRequest: null,
 
-    verificationRequired: false
+    verificationRequired: false,
+
+    verificationUrl: null,
+
+    sessionId: null
 
 };
 
@@ -289,6 +293,8 @@ async function startScraping(
     hideVerificationPanel();
 
     state.verificationRequired = false;
+    state.verificationUrl = null;
+    state.sessionId = null;
 
     state.lastUrl = url;
 
@@ -395,25 +401,25 @@ async function startScraping(
             result?.requiresVerification === true
         ) {
 
-            state.verificationRequired =
-                true;
+            state.verificationRequired = true;
 
+            state.verificationUrl =
+                result.verificationUrl || null;
+
+            state.sessionId =
+                result.sessionId || null;
 
             setSystemStatus(
                 "verification"
             );
 
-
             logActivity(
                 "Source requires manual CAPTCHA verification."
             );
 
-
             showVerificationRequired();
 
-
             return;
-
         }
 
 
@@ -614,10 +620,10 @@ if (verificationButton) {
         "click",
         () => {
 
-            if (!state.lastUrl) {
+            if (!state.verificationUrl) {
 
                 showError(
-                    "No scraping request is available for verification."
+                    "The verification session is not available."
                 );
 
                 return;
@@ -626,35 +632,27 @@ if (verificationButton) {
 
 
             logActivity(
-                "Manual verification requested."
+                "Opening manual CAPTCHA verification."
             );
 
 
-            /*
-             * IMPORTANT:
-             *
-             * The current backend uses server-side fetch().
-             *
-             * Therefore this button cannot yet open the real
-             * CAPTCHA inside the same scraping session.
-             *
-             * The real browser/session implementation will be
-             * connected in the backend phase.
-             */
+            const verificationWindow =
+                window.open(
+                    state.verificationUrl,
+                    "captchaVerification",
+                    "width=1200,height=850,resizable=yes,scrollbars=yes"
+                );
 
 
-            alert(
-                "The source requires CAPTCHA verification. " +
-                "Complete the verification on the source website, " +
-                "then return here and continue the scraping process."
-            );
+            if (!verificationWindow) {
 
+                showError(
+                    "The verification window was blocked by the browser. Please allow pop-ups and try again."
+                );
 
-            /*
-             * Once the backend supports persistent browser
-             * sessions, this button will start the real
-             * verification flow.
-             */
+                return;
+
+            }
 
 
             if (continueScrapingButton) {
@@ -665,10 +663,16 @@ if (verificationButton) {
 
             }
 
+
+            logActivity(
+                "Verification window opened. Complete the CAPTCHA and then click Continue scraping."
+            );
+
         }
     );
 
 }
+
 
 
 /* =========================================================
@@ -686,49 +690,198 @@ if (continueScrapingButton) {
             }
 
 
-            if (!state.lastUrl) {
+            if (!state.sessionId) {
+
+                showError(
+                    "No active browser session is available."
+                );
+
+                return;
+            }
+
+
+            if (!state.lastRequest) {
 
                 showError(
                     "No previous scraping request is available."
                 );
 
                 return;
-
             }
 
 
+            setLoading(true);
+
             logActivity(
-                "Continuing scraping process..."
+                "Checking verification and continuing scraping..."
             );
 
 
-            hideVerificationPanel();
+            try {
+
+                const response =
+                    await fetch(
+                        "/api/scrape",
+                        {
+                            method: "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            body:
+                                JSON.stringify({
+
+                                    action: "continue",
+
+                                    sessionId:
+                                        state.sessionId,
+
+                                    method:
+                                        state.lastRequest.method,
+
+                                    timeout:
+                                        state.lastRequest.timeout,
+
+                                    mode:
+                                        state.lastRequest.mode,
+
+                                    content:
+                                        state.lastRequest.content
+
+                                })
+                        }
+                    );
 
 
-            const configuration =
-                state.lastRequest
-                    ? {
-
-                        method:
-                            state.lastRequest.method,
-
-                        timeout:
-                            state.lastRequest.timeout,
-
-                        mode:
-                            state.lastRequest.mode,
-
-                        content:
-                            state.lastRequest.content
-
-                    }
-                    : getScraperConfiguration();
+                let result;
 
 
-            await startScraping(
-                state.lastUrl,
-                configuration
-            );
+                try {
+
+                    result =
+                        await response.json();
+
+                } catch {
+
+                    throw new Error(
+                        "The extraction engine returned an invalid response."
+                    );
+
+                }
+
+
+                if (result.sessionId) {
+
+                    state.sessionId =
+                        result.sessionId;
+
+                }
+
+
+                if (
+                    result.requiresVerification === true
+                ) {
+
+                    state.verificationRequired =
+                        true;
+
+                    state.verificationUrl =
+                        result.verificationUrl || null;
+
+
+                    setSystemStatus(
+                        "verification"
+                    );
+
+
+                    showVerificationRequired();
+
+
+                    logActivity(
+                        "CAPTCHA verification is still required."
+                    );
+
+
+                    return;
+                }
+
+
+                if (
+                    !response.ok ||
+                    !result.success
+                ) {
+
+                    throw new Error(
+                        result?.error?.message ||
+                        "Could not continue the scraping process."
+                    );
+
+                }
+
+
+                state.verificationRequired =
+                    false;
+
+                state.verificationUrl =
+                    null;
+
+
+                const data =
+                    normalizeResults(
+                        result
+                    );
+
+
+                state.results =
+                    data;
+
+
+                renderResults(
+                    data
+                );
+
+
+                setSystemStatus(
+                    "ready"
+                );
+
+
+                logActivity(
+                    `${data.length} records extracted successfully.`
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Continue scraping error:",
+                    error
+                );
+
+
+                showError(
+                    error.message ||
+                    "Could not continue the scraping process."
+                );
+
+
+                setSystemStatus(
+                    "error"
+                );
+
+
+                logActivity(
+                    `Continue scraping failed: ${error.message}`
+                );
+
+
+            } finally {
+
+                setLoading(false);
+
+            }
 
         }
     );
@@ -1086,46 +1239,45 @@ function renderResults(
 
                 <td>
                     ${escapeHtml(
-                        item.name ?? ""
-                    )}
+                item.name ?? ""
+            )}
                 </td>
 
                 <td>
 
-                    ${
-                        item.url
-                            ? `
+                    ${item.url
+                    ? `
 
                                 <a
                                     href="${escapeAttribute(
-                                        item.url
-                                    )}"
+                        item.url
+                    )}"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                 >
 
                                     ${escapeHtml(
-                                        item.url
-                                    )}
+                        item.url
+                    )}
 
                                 </a>
 
                               `
-                            : "—"
-                    }
+                    : "—"
+                }
 
                 </td>
 
                 <td>
                     ${escapeHtml(
-                        item.type ?? ""
-                    )}
+                    item.type ?? ""
+                )}
                 </td>
 
                 <td>
                     ${escapeHtml(
-                        item.content ?? ""
-                    )}
+                    item.content ?? ""
+                )}
                 </td>
 
             `;
@@ -1203,10 +1355,9 @@ function updateResultsCount() {
 
 
     resultsCount.textContent =
-        `${count} ${
-            count === 1
-                ? "record"
-                : "records"
+        `${count} ${count === 1
+            ? "record"
+            : "records"
         }`;
 
 }

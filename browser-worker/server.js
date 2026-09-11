@@ -340,7 +340,7 @@ async function connectToNewBrowserlessSession() {
     const wsUrl =
         `${BROWSERLESS_WS_BASE}/stealth` +
         `?token=${token}` +
-        `&solveCaptchas=true` +
+        `&solveCaptchas=false` +
         `&blockAds=true`;
 
     return chromium.connectOverCDP(wsUrl, {
